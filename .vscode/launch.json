@@ -1,0 +1,64 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MCP Server: Debug stdio",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/CS2_MCP.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "DOTNET_ENVIRONMENT": "Development",
+                "DOTNET_NOLOGO": "true"
+            },
+            "presentation": {
+                "group": "MCP",
+                "order": 1
+            }
+        },
+        {
+            "name": "MCP Server: Attach to process",
+            "type": "coreclr",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": true,
+            "presentation": {
+                "group": "MCP",
+                "order": 2
+            }
+        },
+        {
+            "name": "MCP Server: Debug HTTP",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0/CS2_MCP.dll",
+            "args": [
+                "--transport",
+                "http"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "justMyCode": true,
+            "envFile": "${workspaceFolder}/.env",
+            "internalConsoleOptions": "neverOpen",
+            "env": {
+                "ASPNETCORE_URLS": "http://127.0.0.1:3001",
+                "DOTNET_ENVIRONMENT": "Development",
+                "DOTNET_NOLOGO": "true"
+            },
+            "presentation": {
+                "group": "MCP",
+                "order": 3
+            }
+        }
+    ]
+}
