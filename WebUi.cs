@@ -473,6 +473,8 @@ internal static class WebUi
     button:disabled { opacity: .55; cursor: progress; }
     button.danger { border-color: #6b3534; color: #ffd7d6; }
     button.good { border-color: #3b5f42; color: #dcf8d8; }
+    button.drag-source { cursor: grab; }
+    button.drag-source:active { cursor: grabbing; }
 
     input {
       min-height: 34px;
@@ -499,6 +501,11 @@ internal static class WebUi
       color: var(--text);
       font: 12px/1.45 Consolas, ui-monospace, monospace;
       padding: 9px;
+    }
+
+    textarea.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(86, 182, 194, .22);
     }
 
     pre {
@@ -619,27 +626,27 @@ internal static class WebUi
           <div class="row three">
             <span>Freeze time</span>
             <input id="freezeSeconds" type="number" value="15" min="0" max="60">
-            <button data-action="set_freezetime" data-payload="seconds:#freezeSeconds">Set</button>
+            <button data-action="set_freezetime" data-payload="seconds:#freezeSeconds" data-script-label="Set freeze time">Set</button>
           </div>
           <div class="row three">
             <span>Buy time</span>
             <input id="buySeconds" type="number" value="20" min="0" max="600">
-            <button data-action="set_buytime" data-payload="seconds:#buySeconds">Set</button>
+            <button data-action="set_buytime" data-payload="seconds:#buySeconds" data-script-label="Set buy time">Set</button>
           </div>
           <div class="row three">
             <span>Start money</span>
             <input id="startMoney" type="number" value="800" min="800" max="65535">
-            <button data-action="set_startmoney" data-payload="money:#startMoney">Set</button>
+            <button data-action="set_startmoney" data-payload="money:#startMoney" data-script-label="Set start money">Set</button>
           </div>
           <div class="row three">
             <span>Round time</span>
             <input id="roundMinutes" type="number" value="2" min="1" max="60">
-            <button data-action="set_roundtime" data-payload="minutes:#roundMinutes">Set</button>
+            <button data-action="set_roundtime" data-payload="minutes:#roundMinutes" data-script-label="Set round time">Set</button>
           </div>
           <div class="row three">
             <span>Max rounds</span>
             <input id="maxRounds" type="number" value="24" min="1" max="60">
-            <button data-action="set_maxrounds" data-payload="rounds:#maxRounds">Set</button>
+            <button data-action="set_maxrounds" data-payload="rounds:#maxRounds" data-script-label="Set max rounds">Set</button>
           </div>
         </div>
       </section>
@@ -650,12 +657,12 @@ internal static class WebUi
           <div class="row three">
             <span>Bot quota</span>
             <input id="botQuota" type="number" value="10" min="0" max="64">
-            <button data-action="bot_quota" data-payload="quota:#botQuota">Set</button>
+            <button data-action="bot_quota" data-payload="quota:#botQuota" data-script-label="Set bot quota">Set</button>
           </div>
           <div class="row three">
             <span>Difficulty</span>
             <input id="botDifficulty" type="number" value="2" min="0" max="3">
-            <button data-action="bot_difficulty" data-payload="difficulty:#botDifficulty">Set</button>
+            <button data-action="bot_difficulty" data-payload="difficulty:#botDifficulty" data-script-label="Set bot difficulty">Set</button>
           </div>
         </div>
       </section>
@@ -703,9 +710,8 @@ internal static class WebUi
       button.addEventListener('click', () => saveScript(button));
     });
 
-    document.querySelectorAll('[data-action]').forEach(button => {
-      button.addEventListener('click', () => runAction(button));
-    });
+    document.querySelectorAll('[data-action]').forEach(button => setupActionButton(button));
+    setupScriptDropTarget();
 
     loadScripts();
     loadMaps();
@@ -790,6 +796,10 @@ internal static class WebUi
         const button = document.createElement('button');
         button.textContent = mapName;
         button.title = `Change map to ${mapName}`;
+        button.dataset.action = 'change_map';
+        button.dataset.mapName = mapName;
+        button.dataset.scriptLabel = `Change map to ${mapName}`;
+        makeActionButtonDraggable(button);
         button.addEventListener('click', () => changeMap(button, mapName));
         mapList.appendChild(button);
       }
@@ -929,6 +939,175 @@ internal static class WebUi
     function setScriptEditorVisible(visible) {
       scriptEditor.hidden = !visible;
       scriptEditorToggle.textContent = visible ? 'Hide Editor' : 'Show Editor';
+    }
+
+    function setupActionButton(button) {
+      button.addEventListener('click', () => runAction(button));
+      makeActionButtonDraggable(button);
+    }
+
+    function makeActionButtonDraggable(button) {
+      button.draggable = true;
+      button.classList.add('drag-source');
+      button.title = button.title
+        ? `${button.title} - drag into script editor`
+        : 'Drag into script editor';
+
+      button.addEventListener('dragstart', event => {
+        const commands = getScriptCommandsForAction(button);
+        if (!commands.length) {
+          event.preventDefault();
+          return;
+        }
+
+        setScriptEditorVisible(true);
+        event.dataTransfer.effectAllowed = 'copy';
+        event.dataTransfer.setData('text/plain', buildScriptBlock(button, commands));
+      });
+    }
+
+    function setupScriptDropTarget() {
+      scriptContent.addEventListener('dragover', event => {
+        if (!Array.from(event.dataTransfer.types).includes('text/plain')) {
+          return;
+        }
+
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+        scriptContent.classList.add('drag-over');
+      });
+
+      scriptContent.addEventListener('dragleave', () => {
+        scriptContent.classList.remove('drag-over');
+      });
+
+      scriptContent.addEventListener('drop', event => {
+        event.preventDefault();
+        scriptContent.classList.remove('drag-over');
+        appendCommandsToScript(event.dataTransfer.getData('text/plain'));
+      });
+    }
+
+    function appendCommandsToScript(text) {
+      const lines = text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+
+      if (!lines.length) {
+        return;
+      }
+
+      setScriptEditorVisible(true);
+      const prefix = scriptContent.value.trimEnd();
+      scriptContent.value = prefix
+        ? `${prefix}\n${lines.join('\n')}\n`
+        : `${lines.join('\n')}\n`;
+      scriptMeta.textContent = 'Unsaved script changes';
+      scriptContent.focus();
+      scriptContent.selectionStart = scriptContent.value.length;
+      scriptContent.selectionEnd = scriptContent.value.length;
+      const executableCount = lines.filter(isExecutableScriptLine).length;
+      setStatus(`Added ${executableCount} command(s) to script editor`, 'ok');
+    }
+
+    function buildScriptBlock(button, commands) {
+      return [`// ${getScriptBlockLabel(button)}`, ...commands].join('\n');
+    }
+
+    function getScriptBlockLabel(button) {
+      const label = (button.dataset.scriptLabel || button.textContent || button.dataset.action || 'Action')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return label || 'Action';
+    }
+
+    function isExecutableScriptLine(line) {
+      return line.length > 0 &&
+        !line.startsWith('#') &&
+        !line.startsWith('//');
+    }
+
+    function getScriptCommandsForAction(button) {
+      const payload = readPayload(button.dataset.payload);
+
+      switch (button.dataset.action) {
+        case 'say':
+          const message = String(payload.message || '').trim();
+          if (!isValidSayMessage(message)) {
+            setStatus('Say message must be 1-200 characters and cannot contain semicolons, quotes, or newlines', 'error');
+            return [];
+          }
+          return [`say ${message}`];
+        case 'competitive_offline':
+          return ['exec gamemode_competitive_offline'];
+        case 'restart_game':
+          return [`mp_restartgame ${clampNumber(payload.delaySeconds, 1, 0, 60)}`];
+        case 'warmup_start':
+          return ['mp_warmup_start'];
+        case 'warmup_end':
+          return ['mp_warmup_end'];
+        case 'pause_match':
+          return ['mp_pause_match'];
+        case 'unpause_match':
+          return ['mp_unpause_match'];
+        case 'overtime_on':
+          return [
+            'mp_overtime_enable 1',
+            `mp_overtime_maxrounds ${clampNumber(payload.maxRounds, 6, 2, 30)}`,
+            `mp_overtime_startmoney ${clampNumber(payload.startMoney, 10000, 800, 65535)}`,
+            `mp_overtime_limit ${clampNumber(payload.limit, 0, 0, 30)}`
+          ];
+        case 'overtime_off':
+          return ['mp_overtime_enable 0'];
+        case 'friendly_fire_on':
+          return ['mp_friendlyfire 1'];
+        case 'friendly_fire_off':
+          return ['mp_friendlyfire 0'];
+        case 'set_freezetime':
+          return [`mp_freezetime ${clampNumber(payload.seconds, 15, 0, 60)}`];
+        case 'set_buytime':
+          return [`mp_buytime ${clampNumber(payload.seconds, 20, 0, 600)}`];
+        case 'set_startmoney':
+          return [`mp_startmoney ${clampNumber(payload.money, 800, 800, 65535)}`];
+        case 'set_roundtime': {
+          const minutes = clampNumber(payload.minutes, 2, 1, 60);
+          return [
+            `mp_roundtime ${minutes}`,
+            `mp_roundtime_defuse ${minutes}`,
+            `mp_roundtime_hostage ${minutes}`
+          ];
+        }
+        case 'set_maxrounds':
+          return [`mp_maxrounds ${clampNumber(payload.rounds, 24, 1, 60)}`];
+        case 'bot_quota':
+          return [`bot_quota ${clampNumber(payload.quota, 10, 0, 64)}`];
+        case 'bot_difficulty':
+          return [`bot_difficulty ${clampNumber(payload.difficulty, 2, 0, 3)}`];
+        case 'bot_kick':
+          return ['bot_kick'];
+        case 'change_map':
+          return [`changelevel ${button.dataset.mapName}`];
+        default:
+          setStatus(`Action "${button.dataset.action}" cannot be added to a script yet`, 'error');
+          return [];
+      }
+    }
+
+    function clampNumber(value, fallback, min, max) {
+      const parsed = Number(value);
+      const number = Number.isFinite(parsed) ? parsed : fallback;
+      return Math.min(max, Math.max(min, number));
+    }
+
+    function isValidSayMessage(message) {
+      return message.length > 0 &&
+        message.length <= 200 &&
+        !message.includes(';') &&
+        !message.includes('"') &&
+        !message.includes('\r') &&
+        !message.includes('\n');
     }
 
     async function saveScript(button) {
