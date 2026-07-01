@@ -196,6 +196,48 @@ http://127.0.0.1:3017/mcp
 http://127.0.0.1:3017/ui
 ```
 
+## Build self-contained app
+
+Use the helper script to publish a self-contained app that does not require .NET to be installed on the target machine:
+
+```powershell
+.\build-self-contained.ps1
+```
+
+Default output:
+
+```text
+artifacts/self-contained/win-x64/
+```
+
+The default build is `Release`, `win-x64`, self-contained, single-file, and non-trimmed.
+
+Useful options:
+
+```powershell
+.\build-self-contained.ps1 -Runtime linux-x64
+.\build-self-contained.ps1 -Runtime win-x64 -Clean
+.\build-self-contained.ps1 -Runtime win-x64 -NoSingleFile
+```
+
+There is also a `cmd` wrapper for shells that cannot run PowerShell scripts directly:
+
+```cmd
+build-self-contained.cmd -Runtime win-x64 -Clean
+```
+
+Run stdio from the publish output:
+
+```powershell
+.\artifacts\self-contained\win-x64\CS2_MCP.exe
+```
+
+Run HTTP from the publish output:
+
+```powershell
+.\artifacts\self-contained\win-x64\CS2_MCP.exe --transport http
+```
+
 ## Web UI
 
 The web UI is a small button-based RCON control page backed by the same `Cs2RconClient` as the MCP tools. It includes status refresh, server chat, quick map changes from `CS2_ALLOWED_MAPS`, gamemode competitive offline, game restart, warmup, pause/unpause, overtime, friendly fire, match rule setters, and bot controls.
@@ -419,8 +461,4 @@ Then point LM Studio to the project with `dotnet run --no-build`. This still run
 
 This keeps using stdio. Do not add `--transport http` for LM Studio's local MCP entry unless the client is configured for MCP over HTTP.
 
-Alternatively, publish an executable and use it directly:
-
-```powershell
-dotnet publish -c Release -o publish
-```
+Alternatively, publish a self-contained executable with `build-self-contained.ps1` and use the produced executable directly.

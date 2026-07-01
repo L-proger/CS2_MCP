@@ -51,7 +51,7 @@
             "envFile": "${workspaceFolder}/.env",
             "internalConsoleOptions": "neverOpen",
             "env": {
-                "ASPNETCORE_URLS": "http://127.0.0.1:3001",
+                "ASPNETCORE_URLS": "http://127.0.0.1:3003",
                 "DOTNET_ENVIRONMENT": "Development",
                 "DOTNET_NOLOGO": "true"
             },
